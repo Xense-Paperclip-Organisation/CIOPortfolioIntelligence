@@ -183,6 +183,21 @@ async def catalysts() -> dict[str, Any]:
     profile = profile_mod.get_profile()
     items: list[dict[str, Any]] = []
     import yfinance as yf  # lazy
+    import datetime as _dt
+    def _to_iso(v: Any) -> str | None:
+        """Coerce a yfinance date value to an ISO-8601 string, never repr()."""
+        if isinstance(v, list):
+            v = v[0] if v else None
+        if v is None:
+            return None
+        if hasattr(v, "isoformat"):
+            return v.isoformat()
+        s = str(v)
+        # Guard: reject any string that looks like a Python repr
+        if s.startswith("datetime.") or s.startswith("[datetime."):
+            return None
+        return s
+
     for h in profile["holdings"]:
         if not h.get("yahoo_symbol"):
             continue
@@ -194,10 +209,13 @@ async def catalysts() -> dict[str, Any]:
             if isinstance(cal, dict):
                 for key, value in cal.items():
                     if "earnings" in key.lower() and value:
+                        iso = _to_iso(value)
+                        if iso is None:
+                            continue
                         items.append({
                             "ticker": h["ticker"], "name": h["name"],
                             "kind": "earnings", "label": key,
-                            "value": str(value), "source": "yfinance",
+                            "value": iso, "source": "yfinance",
                         })
         except Exception:
             continue
@@ -242,6 +260,39 @@ async def chat(body: ChatRequest) -> dict[str, Any]:
     }
     reply = await run_in_threadpool(chat_agent.respond, body.messages, ctx)
     return {"reply": reply, "context_keys": list(ctx.keys())}
+
+
+# RM Routing (stub) -----------------------------------------------------
+class RmRouteRequest(BaseModel):
+    holding: str
+    action: str
+    reasoning: str
+    note: str = ""
+
+
+import datetime as _rm_dt, uuid as _uuid
+
+_rm_log: list[dict[str, Any]] = []
+
+
+@router.post("/rm-route")
+async def rm_route(body: RmRouteRequest) -> dict[str, Any]:
+    entry = {
+        "id": str(_uuid.uuid4()),
+        "timestamp": _rm_dt.datetime.utcnow().isoformat() + "Z",
+        "holding": body.holding,
+        "action": body.action,
+        "reasoning": body.reasoning,
+        "note": body.note,
+        "status": "routed_to_rm",
+    }
+    _rm_log.append(entry)
+    return {"ok": True, "entry": entry}
+
+
+@router.get("/rm-route/log")
+async def rm_route_log() -> dict[str, Any]:
+    return {"entries": _rm_log}
 
 
 # Healthcheck -----------------------------------------------------------
