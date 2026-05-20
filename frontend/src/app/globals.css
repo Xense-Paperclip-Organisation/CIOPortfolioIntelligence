@@ -1,0 +1,51 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html, body {
+  background: theme('colors.ink.950');
+  color: theme('colors.ink.100');
+  min-height: 100%;
+}
+
+html.light, html.light body {
+  background: #F6F1E7;
+  color: #1A1F26;
+  color-scheme: light;
+}
+
+.card {
+  @apply rounded-xl border border-white/[0.06] bg-ink-900/70 backdrop-blur-md shadow-card;
+}
+
+.card-light {
+  @apply bg-white/80 border-black/[0.05];
+}
+
+html.light .card {
+  background: rgba(255,255,255,0.85);
+  border-color: rgba(0,0,0,0.06);
+  box-shadow: 0 12px 30px rgba(0,0,0,0.08);
+}
+
+.pill {
+  @apply inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-mono uppercase tracking-wider;
+}
+
+.pill-pos { @apply border-emerald-400/30 bg-emerald-400/10 text-emerald-300; }
+.pill-neg { @apply border-rose-400/30 bg-rose-400/10 text-rose-300; }
+.pill-neu { @apply border-slate-400/30 bg-slate-400/10 text-slate-300; }
+.pill-warn { @apply border-amber-400/30 bg-amber-400/10 text-amber-300; }
+
+.metric-num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
+}
+
+.divider-soft { @apply border-t border-white/[0.06]; }
+
+::selection { background: rgba(200,169,90,0.4); }
