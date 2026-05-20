@@ -5,6 +5,10 @@ import type { Position } from '@/types/api';
 import { HoldingDetail } from './HoldingDetail';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 
+function hasIntraday(p: Position): boolean {
+  return p.asset_class !== 'Cash';
+}
+
 function riskBadge(p: Position) {
   if (p.asset_class === 'Cash') return { label: 'CASH', cls: 'pill-neu' };
   if (p.asset_class === 'Fixed Income') return { label: 'LOW VOL', cls: 'pill-pos' };
@@ -42,20 +46,23 @@ export function HoldingsGrid({ positions }: { positions: Position[] }) {
             const wp = p.quote.week_change_pct ?? 0;
             const badge = riskBadge(p);
             const isOpen = expanded === p.ticker;
+            const canExpand = hasIntraday(p);
             return (
               <Fragment key={p.ticker}>
                 <tr
-                  className={`cursor-pointer border-t border-white/[0.04] hover:bg-white/[0.03] ${isOpen ? 'bg-white/[0.03]' : ''}`}
-                  onClick={() => setExpanded(isOpen ? null : p.ticker)}
+                  className={`border-t border-white/[0.04] ${canExpand ? 'cursor-pointer hover:bg-white/[0.03]' : ''} ${isOpen ? 'bg-white/[0.03]' : ''}`}
+                  onClick={() => canExpand && setExpanded(isOpen ? null : p.ticker)}
                 >
-                  <td className="px-5 py-3 text-accent-steel">{isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}</td>
+                  <td className="px-5 py-3 text-accent-steel">
+                    {canExpand ? (isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />) : <span className="inline-block w-[14px]" />}
+                  </td>
                   <td className="py-3">
                     <div className="font-semibold">{p.ticker}</div>
                     <div className="text-[11px] text-accent-steel">{p.name} · {p.geography}{p.sector ? ` · ${p.sector}` : ''}</div>
                   </td>
-                  <td className="py-3 text-right metric-num">{p.asset_class === 'Cash' ? '—' : p.quote.price?.toFixed(2)}</td>
-                  <td className={`py-3 text-right metric-num ${dp >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>{fmtPct(dp)}</td>
-                  <td className={`py-3 text-right metric-num ${wp >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>{fmtPct(wp)}</td>
+                  <td className="py-3 text-right metric-num" title={!canExpand ? 'Cash positions do not move intraday' : undefined}>{canExpand ? p.quote.price?.toFixed(2) : '—'}</td>
+                  <td className={`py-3 text-right metric-num ${canExpand ? (dp >= 0 ? 'text-emerald-300' : 'text-rose-300') : 'text-accent-steel/50'}`} title={!canExpand ? 'Cash positions do not move intraday' : undefined}>{canExpand ? fmtPct(dp) : '—'}</td>
+                  <td className={`py-3 text-right metric-num ${canExpand ? (wp >= 0 ? 'text-emerald-300' : 'text-rose-300') : 'text-accent-steel/50'}`} title={!canExpand ? 'Cash positions do not move intraday' : undefined}>{canExpand ? fmtPct(wp) : '—'}</td>
                   <td className="py-3 text-right metric-num">{fmtUsd(p.value_usd, { compact: true })}</td>
                   <td className="py-3 text-right metric-num">{p.weight_pct.toFixed(1)}%</td>
                   <td className="py-3 text-right"><span className={`pill ${badge.cls}`}>{badge.label}</span></td>
