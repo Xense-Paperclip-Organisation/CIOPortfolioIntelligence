@@ -1,0 +1,78 @@
+services:
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    networks:
+      - cio
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    environment:
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      CLAUDE_ADVISORY_MODEL: ${CLAUDE_ADVISORY_MODEL:-claude-opus-4-6}
+      CLAUDE_PERSONALIZATION_MODEL: ${CLAUDE_PERSONALIZATION_MODEL:-claude-sonnet-4-6}
+      CLAUDE_CHAT_MODEL: ${CLAUDE_CHAT_MODEL:-claude-opus-4-6}
+      ALPHA_VANTAGE_API_KEY: ${ALPHA_VANTAGE_API_KEY:-}
+      FRED_API_KEY: ${FRED_API_KEY:-}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      PRICE_CACHE_TTL_SECONDS: ${PRICE_CACHE_TTL_SECONDS:-300}
+      NEWS_CACHE_TTL_SECONDS: ${NEWS_CACHE_TTL_SECONDS:-900}
+      MACRO_CACHE_TTL_SECONDS: ${MACRO_CACHE_TTL_SECONDS:-3600}
+      PERSONALIZATION_CACHE_TTL_SECONDS: ${PERSONALIZATION_CACHE_TTL_SECONDS:-86400}
+      PYTHONUNBUFFERED: "1"
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - cio
+    expose:
+      - "8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/healthz', timeout=2).status == 200 else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_BASE: ${NEXT_PUBLIC_API_BASE:-/api}
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      BACKEND_URL: http://backend:8000
+      NEXT_PUBLIC_API_BASE: ${NEXT_PUBLIC_API_BASE:-/api}
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - cio
+    expose:
+      - "3000"
+
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    depends_on:
+      - frontend
+      - backend
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    networks:
+      - cio
+
+networks:
+  cio:
+    driver: bridge
