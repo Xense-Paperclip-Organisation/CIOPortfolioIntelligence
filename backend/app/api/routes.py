@@ -6,6 +6,7 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.concurrency import run_in_threadpool
+from fastapi.responses import Response
 from pydantic import BaseModel
 
 from .. import profile as profile_mod
@@ -18,6 +19,7 @@ from ..agents import pulse as pulse_agent
 from ..agents import scenario as scenario_agent
 from ..services import macro as macro_svc
 from ..services import news as news_svc
+from ..services import pdf as pdf_svc
 from ..services import portfolio as portfolio_svc
 from ..services import prices as prices_svc
 from ..services import risk as risk_svc
@@ -164,11 +166,17 @@ class ScenarioRunRequest(BaseModel):
     scenario_id: str
 
 
+# GET variant so the xense.dev GET-only reverse-proxy can reach it from the browser.
+@router.get("/scenarios/run")
+async def scenario_run_get(scenario_id: str = Query("us-tech-drawdown")) -> dict[str, Any]:
+    bundle = await _portfolio_bundle()
+    return await run_in_threadpool(scenario_agent.run, scenario_id, bundle["positions"])
+
+
 @router.post("/scenarios/run")
 async def scenario_run(body: ScenarioRunRequest) -> dict[str, Any]:
     bundle = await _portfolio_bundle()
-    result = await run_in_threadpool(scenario_agent.run, body.scenario_id, bundle["positions"])
-    return result
+    return await run_in_threadpool(scenario_agent.run, body.scenario_id, bundle["positions"])
 
 
 # Catalysts -------------------------------------------------------------
@@ -293,6 +301,57 @@ async def rm_route(body: RmRouteRequest) -> dict[str, Any]:
 @router.get("/rm-route/log")
 async def rm_route_log() -> dict[str, Any]:
     return {"entries": _rm_log}
+
+
+# PDF export ------------------------------------------------------------
+@router.get("/export/pdf")
+async def export_pdf() -> Response:
+    """Generate and return a CIO briefing PDF using reportlab (no headless browser needed)."""
+    try:
+        bundle = await _portfolio_bundle()
+        risk = await run_in_threadpool(risk_svc.portfolio_risk, bundle["positions"])
+        advisory_result = await run_in_threadpool(
+            advisory_agent.advise,
+            bundle["positions"], bundle["allocation"], risk, bundle["target"], profile_mod.get_profile(),
+        )
+        advisory_text: str | None = None
+        if isinstance(advisory_result, dict):
+            advisory_text = advisory_result.get("recommendation") or advisory_result.get("narrative")
+        elif isinstance(advisory_result, str):
+            advisory_text = advisory_result
+
+        pulse_text: str | None = None
+        try:
+            pulse_result = await run_in_threadpool(
+                pulse_agent.narrative,
+                bundle["positions"], bundle["allocation"], risk, bundle["target"],
+                bundle["revalued"]["day_pnl_pct"],
+            )
+            if isinstance(pulse_result, dict):
+                pulse_text = pulse_result.get("narrative") or pulse_result.get("pulse")
+            elif isinstance(pulse_result, str):
+                pulse_text = pulse_result
+        except Exception:
+            pass
+
+        pdf_bytes = await run_in_threadpool(
+            pdf_svc.generate,
+            profile_mod.get_profile(),
+            bundle["positions"],
+            bundle["allocation"],
+            bundle["alerts"],
+            risk,
+            advisory_text,
+            pulse_text,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"PDF generation failed: {e}") from e
+
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": 'inline; filename="cio-briefing.pdf"'},
+    )
 
 
 # Healthcheck -----------------------------------------------------------

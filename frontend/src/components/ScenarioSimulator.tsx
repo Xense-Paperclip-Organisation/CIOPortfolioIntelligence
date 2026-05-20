@@ -9,6 +9,7 @@ export function ScenarioSimulator() {
   const [activeId, setActiveId] = useState<string>('us-tech-drawdown');
   const [result, setResult] = useState<ScenarioResult | null>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     apiFetch<{ scenarios: any[] }>('/api/scenarios').then((d) => setScenarios(d.scenarios)).catch(() => {});
@@ -17,12 +18,11 @@ export function ScenarioSimulator() {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    apiFetch<ScenarioResult>('/api/scenarios/run', {
-      method: 'POST',
-      body: JSON.stringify({ scenario_id: activeId })
-    })
-      .then((r) => { if (!cancelled) setResult(r); })
-      .catch(() => { if (!cancelled) setResult(null); })
+    setError(null);
+    // Use GET so the request works through GET-only reverse-proxies (e.g. xense.dev plugin proxy).
+    apiFetch<ScenarioResult>(`/api/scenarios/run?scenario_id=${encodeURIComponent(activeId)}`)
+      .then((r) => { if (!cancelled) { setResult(r); setError(null); } })
+      .catch((e) => { if (!cancelled) { setResult(null); setError(e?.message ?? 'Scenario unavailable'); } })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [activeId]);
@@ -54,6 +54,7 @@ export function ScenarioSimulator() {
         ))}
       </div>
       {loading && <div className="text-[11px] text-accent-steel">Running scenario…</div>}
+      {!loading && error && <div className="text-[11px] text-red-400">Error: {error}</div>}
       {result && (
         <>
           <p className="text-[12px] leading-relaxed text-ink-100/90">{result.rationale}</p>
