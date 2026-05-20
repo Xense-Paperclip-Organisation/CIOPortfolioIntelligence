@@ -8,7 +8,7 @@ export function ExportButton() {
         <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-accent-steel">Briefing export</div>
         <p className="mt-1 text-sm">
           Export the full briefing as a portrait PDF. Uses the browser's print pipeline (Chrome / Edge → "Save as PDF").
-          A server-side endpoint <code>/api/export/pdf</code> using Puppeteer is wired up for headless generation.
+          Server-side PDF via <code>/api/export/pdf</code> — generated from live data (no Chromium required).
         </p>
       </div>
       <div className="flex items-center gap-2">

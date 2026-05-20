@@ -13,3 +13,5 @@ redis==5.0.8
 python-dateutil==2.9.0.post0
 orjson==3.10.7
 tenacity==9.0.0
+
+reportlab==4.2.5
