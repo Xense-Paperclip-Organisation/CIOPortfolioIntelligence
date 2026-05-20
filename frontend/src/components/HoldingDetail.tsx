@@ -37,6 +37,7 @@ export function HoldingDetail({ ticker, position }: { ticker: string; position: 
   useEffect(() => {
     if (!containerRef.current || !candles.length) return;
     chartRef.current?.remove();
+    /* Chart colors are fixed to dark palette — chart canvas doesn't support CSS vars */
     const chart = createChart(containerRef.current, {
       layout: { background: { type: ColorType.Solid, color: 'transparent' }, textColor: '#A3B0C5' },
       grid: { horzLines: { color: 'rgba(255,255,255,0.04)' }, vertLines: { color: 'rgba(255,255,255,0.04)' } },
@@ -74,28 +75,28 @@ export function HoldingDetail({ ticker, position }: { ticker: string; position: 
         <div className="mb-2 flex items-center justify-between">
           <div className="flex items-center gap-1">
             {TIMEFRAMES.map((t) => (
-              <button key={t} onClick={() => setTf(t)} className={`pill ${tf === t ? 'border-accent-gold/60 bg-accent-gold/10 text-accent-gold' : 'pill-neu'}`}>{t}</button>
+              <button key={t} onClick={() => setTf(t)} className={`pill ${tf === t ? 'border-token-accent/60 bg-token-accent/10 text-accent' : 'pill-neu'}`}>{t}</button>
             ))}
           </div>
           {position.quote.synthesized && (
-            <span className="font-mono text-[10px] uppercase tracking-wider text-amber-300">Synthesized series</span>
+            <span className="font-mono text-[10px] uppercase tracking-wider text-warning">Synthesized series</span>
           )}
         </div>
-        <div ref={containerRef} className="h-[320px] w-full rounded-md border border-white/[0.05] bg-ink-950/60" />
-        {loading && <div className="mt-2 text-[11px] text-accent-steel">Loading live OHLCV…</div>}
+        <div ref={containerRef} className="h-[320px] w-full rounded-md border border-token-border bg-token-bg" />
+        {loading && <div className="mt-2 text-[11px] text-token-fg-muted">Loading live OHLCV…</div>}
         {!!news.length && (
           <div className="mt-3">
-            <div className="font-mono text-[10px] uppercase tracking-[0.15em] text-accent-steel">Recent headlines</div>
+            <div className="font-mono text-[10px] uppercase tracking-[0.15em] text-token-fg-muted">Recent headlines</div>
             <ul className="mt-1 space-y-1 text-xs">
               {news.slice(0, 4).map((n) => (
-                <li key={n.id}><a href={n.link} className="text-accent-steel hover:text-accent-gold" target="_blank" rel="noreferrer">{n.title}</a> <span className="font-mono text-[10px] uppercase tracking-wider text-accent-steel/60">· {n.source}</span></li>
+                <li key={n.id}><a href={n.link} className="text-token-fg-muted hover:text-token-accent" target="_blank" rel="noreferrer">{n.title}</a> <span className="font-mono text-[10px] uppercase tracking-wider text-token-fg-muted/60">· {n.source}</span></li>
               ))}
             </ul>
           </div>
         )}
       </div>
       <div className="space-y-2">
-        <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.15em] text-accent-gold">
+        <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.15em] text-token-accent">
           <Sparkles size={12} /> AI chart explanation
         </div>
         {explanation ? (
@@ -111,7 +112,7 @@ export function HoldingDetail({ ticker, position }: { ticker: string; position: 
             <Row label="Last candle" value={explanation.last_candle} />
           </div>
         ) : (
-          <div className="text-[11px] text-accent-steel">Loading chart commentary…</div>
+          <div className="text-[11px] text-token-fg-muted">Loading chart commentary…</div>
         )}
       </div>
     </div>
@@ -120,9 +121,9 @@ export function HoldingDetail({ ticker, position }: { ticker: string; position: 
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-start justify-between gap-2 border-t border-white/[0.05] py-1 first:border-t-0">
-      <div className="font-mono text-[10px] uppercase tracking-[0.15em] text-accent-steel">{label}</div>
-      <div className="max-w-[60%] text-right text-[12px]">{value}</div>
+    <div className="flex items-start justify-between gap-2 border-t border-token-border py-1 first:border-t-0">
+      <div className="font-mono text-[10px] uppercase tracking-[0.15em] text-token-fg-muted">{label}</div>
+      <div className="max-w-[60%] text-right text-[12px] text-token-fg">{value}</div>
     </div>
   );
 }

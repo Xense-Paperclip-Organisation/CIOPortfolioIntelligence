@@ -35,7 +35,7 @@ export function ScenarioSimulator() {
   return (
     <section className="card p-5">
       <div className="mb-2 flex items-center justify-between">
-        <h2 className="font-mono text-[10px] uppercase tracking-[0.18em] text-accent-steel">Scenario simulator</h2>
+        <h2 className="font-mono text-[10px] uppercase tracking-[0.18em] text-token-fg-muted">Scenario simulator</h2>
         {result && (
           <span className={`pill ${result.total_portfolio_impact_pct >= 0 ? 'pill-pos' : 'pill-neg'}`}>
             portfolio {result.total_portfolio_impact_pct.toFixed(1)}%
@@ -47,17 +47,17 @@ export function ScenarioSimulator() {
           <button
             key={s.id}
             onClick={() => setActiveId(s.id)}
-            className={`pill ${activeId === s.id ? 'border-accent-gold/60 bg-accent-gold/10 text-accent-gold' : 'pill-neu'}`}
+            className={`pill ${activeId === s.id ? 'border-token-accent/60 bg-token-accent/10 text-accent' : 'pill-neu'}`}
           >
             {s.label}
           </button>
         ))}
       </div>
-      {loading && <div className="text-[11px] text-accent-steel">Running scenario…</div>}
+      {loading && <div className="text-[11px] text-token-fg-muted">Running scenario…</div>}
       {!loading && error && <div className="text-[11px] text-red-400">Error: {error}</div>}
       {result && (
         <>
-          <p className="text-[12px] leading-relaxed text-ink-100/90">{result.rationale}</p>
+          <p className="text-[12px] leading-relaxed text-token-fg">{result.rationale}</p>
           <div className="mt-3 h-60">
             <ResponsiveContainer>
               <BarChart layout="vertical" data={tornadoData} margin={{ left: 30, right: 16 }}>

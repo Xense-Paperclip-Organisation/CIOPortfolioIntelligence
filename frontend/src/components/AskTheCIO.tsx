@@ -22,10 +22,9 @@ export function AskTheCIO() {
     setMessages((m) => [...m, user]);
     setBusy(true);
     try {
-      const res = await apiFetch<{ reply: Msg }>('/api/chat', {
-        method: 'POST',
-        body: JSON.stringify({ messages: [...messages, user] })
-      });
+      const history = [...messages, user];
+      const h = btoa(unescape(encodeURIComponent(JSON.stringify(history))));
+      const res = await apiFetch<{ reply: Msg }>(`/api/chat?h=${encodeURIComponent(h)}`);
       setMessages((m) => [...m, res.reply]);
     } catch (e: any) {
       setMessages((m) => [...m, { role: 'assistant', content: `Chat error: ${e?.message ?? 'unknown'}` }]);
@@ -37,20 +36,20 @@ export function AskTheCIO() {
   return (
     <section className="card p-5">
       <div className="mb-2 flex items-center justify-between">
-        <h2 className="font-mono text-[10px] uppercase tracking-[0.18em] text-accent-steel">Ask the CIO</h2>
-        <span className="pill border-accent-gold/40 bg-accent-gold/10 text-accent-gold"><Sparkles size={11} /> Claude Opus · portfolio-aware</span>
+        <h2 className="font-mono text-[10px] uppercase tracking-[0.18em] text-token-fg-muted">Ask the CIO</h2>
+        <span className="pill border-token-accent/40 bg-token-accent/10 text-accent"><Sparkles size={11} /> Claude Opus · portfolio-aware</span>
       </div>
       <div ref={ref} className="max-h-72 space-y-3 overflow-y-auto pr-1 text-sm">
         {messages.map((m, i) => (
-          <div key={i} className={`max-w-[88%] rounded-md px-3 py-2 leading-relaxed ${m.role === 'user' ? 'ml-auto bg-accent-gold/15 text-accent-gold/90' : 'border border-white/[0.06] bg-white/[0.03]'}`}>
+          <div key={i} className={`max-w-[88%] rounded-md px-3 py-2 leading-relaxed ${m.role === 'user' ? 'ml-auto bg-token-accent/15 text-accent/90' : 'border border-token-border bg-token-surface-elevated'}`}>
             {m.content}
           </div>
         ))}
-        {busy && <div className="text-[11px] text-accent-steel">Thinking…</div>}
+        {busy && <div className="text-[11px] text-token-fg-muted">Thinking…</div>}
       </div>
       <div className="mt-3 flex items-center gap-2">
         <input
-          className="flex-1 rounded-md border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-sm outline-none focus:border-accent-gold/60"
+          className="flex-1 rounded-md border border-token-border bg-token-surface-elevated px-3 py-2 text-sm outline-none focus:border-token-accent/60"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
@@ -59,7 +58,7 @@ export function AskTheCIO() {
         <button
           onClick={send}
           disabled={busy}
-          className="inline-flex items-center gap-1 rounded-md border border-accent-gold/40 bg-accent-gold/10 px-3 py-2 text-xs font-semibold text-accent-gold disabled:opacity-50"
+          className="inline-flex items-center gap-1 rounded-md border border-token-accent/40 bg-token-accent/10 px-3 py-2 text-xs font-semibold text-accent disabled:opacity-50"
         >
           <Send size={12} /> Send
         </button>

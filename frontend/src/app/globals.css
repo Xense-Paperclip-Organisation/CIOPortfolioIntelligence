@@ -2,50 +2,101 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ─── Design tokens — dark (default) ─────────────────────────────────────── */
 :root {
   color-scheme: dark;
+
+  --bg:               #0A0E14;
+  --surface:          #0F1620;
+  --surface-elevated: #15202B;
+  --fg:               #E2E8F0;
+  --fg-muted:         #A3B0C5;
+  --accent:           #C8A95A;
+  --positive:         #19B89E;
+  --negative:         #E5484D;
+  --warning:          #F1A33F;
+  --info:             #7FA8D6;
+  --border:           rgba(255,255,255,0.06);
+  --border-strong:    rgba(255,255,255,0.10);
+  --ring:             rgba(200,169,90,0.55);
 }
 
+/* ─── Design tokens — light ───────────────────────────────────────────────── */
+html.light {
+  color-scheme: light;
+
+  --bg:               #F6F1E7;
+  --surface:          #FFFFFF;
+  --surface-elevated: #FAFAFA;
+  --fg:               #1A1F26;
+  --fg-muted:         #5C6B7A;
+  --accent:           #9B7A2E;
+  --positive:         #0D7A5F;
+  --negative:         #C0181E;
+  --warning:          #B35900;
+  --info:             #2056A8;
+  --border:           rgba(0,0,0,0.07);
+  --border-strong:    rgba(0,0,0,0.13);
+  --ring:             rgba(155,122,46,0.55);
+}
+
+/* ─── Base reset ──────────────────────────────────────────────────────────── */
 html, body {
-  background: theme('colors.ink.950');
-  color: theme('colors.ink.100');
+  background-color: var(--bg);
+  color: var(--fg);
   min-height: 100%;
 }
 
-html.light, html.light body {
-  background: #F6F1E7;
-  color: #1A1F26;
-  color-scheme: light;
+/* ─── Focus-visible ring (WCAG 2.4.7) ────────────────────────────────────── */
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 
+/* ─── Card ────────────────────────────────────────────────────────────────── */
 .card {
-  @apply rounded-xl border border-white/[0.06] bg-ink-900/70 backdrop-blur-md shadow-card;
-}
-
-.card-light {
-  @apply bg-white/80 border-black/[0.05];
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  @apply rounded-xl shadow-card backdrop-blur-md;
 }
 
 html.light .card {
-  background: rgba(255,255,255,0.85);
-  border-color: rgba(0,0,0,0.06);
-  box-shadow: 0 12px 30px rgba(0,0,0,0.08);
+  box-shadow: 0 4px 24px rgba(0,0,0,0.07), 0 1px 3px rgba(0,0,0,0.05);
 }
 
+/* ─── Pills ───────────────────────────────────────────────────────────────── */
 .pill {
   @apply inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-mono uppercase tracking-wider;
 }
 
-.pill-pos { @apply border-emerald-400/30 bg-emerald-400/10 text-emerald-300; }
-.pill-neg { @apply border-rose-400/30 bg-rose-400/10 text-rose-300; }
-.pill-neu { @apply border-slate-400/30 bg-slate-400/10 text-slate-300; }
-.pill-warn { @apply border-amber-400/30 bg-amber-400/10 text-amber-300; }
+.pill-pos  { border-color: color-mix(in srgb, var(--positive) 35%, transparent); background-color: color-mix(in srgb, var(--positive) 12%, transparent); color: var(--positive); }
+.pill-neg  { border-color: color-mix(in srgb, var(--negative) 35%, transparent); background-color: color-mix(in srgb, var(--negative) 12%, transparent); color: var(--negative); }
+.pill-neu  { border-color: color-mix(in srgb, var(--fg-muted) 35%, transparent); background-color: color-mix(in srgb, var(--fg-muted) 10%, transparent); color: var(--fg-muted); }
+.pill-warn { border-color: color-mix(in srgb, var(--warning)  35%, transparent); background-color: color-mix(in srgb, var(--warning)  12%, transparent); color: var(--warning); }
 
+/* ─── Tabular numbers ─────────────────────────────────────────────────────── */
 .metric-num {
   font-variant-numeric: tabular-nums;
   font-feature-settings: 'tnum';
 }
 
-.divider-soft { @apply border-t border-white/[0.06]; }
+/* ─── Semantic helpers ────────────────────────────────────────────────────── */
+.text-positive { color: var(--positive); }
+.text-negative { color: var(--negative); }
+.text-warning  { color: var(--warning);  }
+.text-info     { color: var(--info);     }
+.text-fg       { color: var(--fg);       }
+.text-fg-muted { color: var(--fg-muted); }
+.text-accent   { color: var(--accent);   }
 
-::selection { background: rgba(200,169,90,0.4); }
+.bg-surface          { background-color: var(--surface); }
+.bg-surface-elevated { background-color: var(--surface-elevated); }
+.border-token        { border-color: var(--border); }
+.border-token-strong { border-color: var(--border-strong); }
+
+/* ─── Divider ─────────────────────────────────────────────────────────────── */
+.divider-soft { border-top: 1px solid var(--border); }
+
+/* ─── Selection ───────────────────────────────────────────────────────────── */
+::selection { background: color-mix(in srgb, var(--accent) 35%, transparent); }

@@ -21,31 +21,31 @@ export function CatalystsList() {
   }, []);
   return (
     <section className="card p-5">
-      <h2 className="mb-2 font-mono text-[10px] uppercase tracking-[0.18em] text-accent-steel">Upcoming catalysts</h2>
+      <h2 className="mb-2 font-mono text-[10px] uppercase tracking-[0.18em] text-token-fg-muted">Upcoming catalysts</h2>
       <div className="space-y-2 text-sm">
         {(data?.items ?? []).slice(0, 6).map((it, i) => (
-          <div key={i} className="flex items-center justify-between rounded-md border border-white/[0.05] bg-white/[0.02] px-3 py-2">
+          <div key={i} className="flex items-center justify-between rounded-md border border-token-border bg-token-surface-elevated px-3 py-2">
             <div>
               <div className="font-semibold">{it.ticker} · {it.label}</div>
-              <div className="text-[11px] text-accent-steel">{it.name} · source: {it.source}</div>
+              <div className="text-[11px] text-token-fg-muted">{it.name} · source: {it.source}</div>
             </div>
-            <div className="font-mono text-[11px] text-accent-steel">
+            <div className="font-mono text-[11px] text-token-fg-muted">
               {formatCatalystDate(it.value) ?? '—'}
             </div>
           </div>
         ))}
         {(data?.macro ?? []).slice(0, 4).map((it, i) => (
-          <div key={`m-${i}`} className="flex items-center justify-between rounded-md border border-white/[0.05] bg-white/[0.02] px-3 py-2">
+          <div key={`m-${i}`} className="flex items-center justify-between rounded-md border border-token-border bg-token-surface-elevated px-3 py-2">
             <div>
               <div className="font-semibold">Macro · {it.label}</div>
-              <div className="text-[11px] text-accent-steel">{it.source}</div>
+              <div className="text-[11px] text-token-fg-muted">{it.source}</div>
             </div>
             <span className="pill pill-warn">macro</span>
           </div>
         ))}
-        {!data && <div className="text-[11px] text-accent-steel">Loading catalyst calendar…</div>}
+        {!data && <div className="text-[11px] text-token-fg-muted">Loading catalyst calendar…</div>}
         {data && !data.items.length && (
-          <div className="text-[11px] text-accent-steel">
+          <div className="text-[11px] text-token-fg-muted">
             No live earnings dates returned by yfinance for the current holdings.
             Macro tags below reference public central-bank calendars.
           </div>

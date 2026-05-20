@@ -18,13 +18,13 @@ export function CustomerHeader({ bundle, macro }: Props) {
           AA
         </div>
         <div>
-          <div className="font-display text-xl font-bold tracking-tight">Ahmed Al-Mansouri</div>
-          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-accent-steel">
-            <span className="pill border-accent-gold/40 bg-accent-gold/10 text-accent-gold">Balanced — Moderate Growth</span>
+          <div className="font-display text-xl font-bold tracking-tight text-token-fg">Ahmed Al-Mansouri</div>
+          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-token-fg-muted">
+            <span className="pill border-token-accent/40 bg-token-accent/10 text-token-accent">Balanced — Moderate Growth</span>
             <span>· Dubai, UAE · Senior engineering manager</span>
           </div>
-          <div className="mt-1 text-[11px] text-accent-steel/80">
-            Goal: retirement at 60 + children's education in 8 years · Horizon 10–15Y · Liability currencies AED + USD
+          <div className="mt-1 text-[11px] text-token-fg-muted/80">
+            Goal: retirement at 60 + children&apos;s education in 8 years · Horizon 10–15Y · Liability currencies AED + USD
           </div>
         </div>
       </div>
@@ -43,10 +43,10 @@ export function CustomerHeader({ bundle, macro }: Props) {
 }
 
 function Metric({ label, value, suffix, tone }: { label: string; value: string; suffix?: string; tone?: 'pos' | 'neg' }) {
-  const toneClass = tone === 'pos' ? 'text-emerald-300' : tone === 'neg' ? 'text-rose-300' : 'text-ink-100';
+  const toneClass = tone === 'pos' ? 'text-positive' : tone === 'neg' ? 'text-negative' : 'text-token-fg';
   return (
     <div className="text-left">
-      <div className="font-mono text-[10px] uppercase tracking-[0.15em] text-accent-steel/80">{label}</div>
+      <div className="font-mono text-[10px] uppercase tracking-[0.15em] text-token-fg-muted">{label}</div>
       <div className={`metric-num text-base font-semibold ${toneClass}`}>{value}{suffix ?? ''}</div>
     </div>
   );

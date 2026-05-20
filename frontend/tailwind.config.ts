@@ -20,6 +20,21 @@ const config: Config = {
           ruby: '#E5484D',
           amber: '#F1A33F',
           steel: '#A3B0C5'
+        },
+        /* Semantic design tokens — theme-aware via CSS custom properties */
+        token: {
+          bg:                 'var(--bg)',
+          surface:            'var(--surface)',
+          'surface-elevated': 'var(--surface-elevated)',
+          fg:                 'var(--fg)',
+          'fg-muted':         'var(--fg-muted)',
+          accent:             'var(--accent)',
+          positive:           'var(--positive)',
+          negative:           'var(--negative)',
+          warning:            'var(--warning)',
+          info:               'var(--info)',
+          border:             'var(--border)',
+          ring:               'var(--ring)',
         }
       },
       fontFamily: {

@@ -13,36 +13,36 @@ function Donut({ title, current, target }: { title: string; current: Record<stri
   const b = target ? toSeries(target) : null;
   return (
     <div className="card p-4">
-      <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-accent-steel">{title}</div>
+      <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-token-fg-muted">{title}</div>
       <div className="mt-1 grid grid-cols-1 gap-3 md:grid-cols-2">
         <div className="h-56">
-          <div className="text-[11px] text-accent-steel/80">Current</div>
+          <div className="text-[11px] text-token-fg-muted">Current</div>
           <ResponsiveContainer>
             <PieChart>
               <Pie data={a} dataKey="value" innerRadius={50} outerRadius={80} stroke="none" paddingAngle={1}>
                 {a.map((_, i) => <Cell key={i} fill={PALETTE[i % PALETTE.length]} />)}
               </Pie>
               <Tooltip
-                contentStyle={{ background: '#0F1620', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6 }}
+                contentStyle={{ background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: 6, color: 'var(--fg)' }}
                 formatter={(v) => `${v}%`}
               />
-              <Legend wrapperStyle={{ fontSize: 10, color: '#A3B0C5' }} />
+              <Legend wrapperStyle={{ fontSize: 10, color: 'var(--fg-muted)' }} />
             </PieChart>
           </ResponsiveContainer>
         </div>
         {b && (
           <div className="h-56">
-            <div className="text-[11px] text-accent-steel/80">Balanced target</div>
+            <div className="text-[11px] text-token-fg-muted">Balanced target</div>
             <ResponsiveContainer>
               <PieChart>
                 <Pie data={b} dataKey="value" innerRadius={50} outerRadius={80} stroke="none" paddingAngle={1}>
                   {b.map((_, i) => <Cell key={i} fill={PALETTE[i % PALETTE.length]} opacity={0.55} />)}
                 </Pie>
                 <Tooltip
-                  contentStyle={{ background: '#0F1620', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6 }}
+                  contentStyle={{ background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: 6, color: 'var(--fg)' }}
                   formatter={(v) => `${v}%`}
                 />
-                <Legend wrapperStyle={{ fontSize: 10, color: '#A3B0C5' }} />
+                <Legend wrapperStyle={{ fontSize: 10, color: 'var(--fg-muted)' }} />
               </PieChart>
             </ResponsiveContainer>
           </div>
@@ -50,7 +50,7 @@ function Donut({ title, current, target }: { title: string; current: Record<stri
       </div>
       {b && (
         <table className="mt-2 w-full text-[11px]">
-          <thead className="text-accent-steel/80">
+          <thead className="text-token-fg-muted">
             <tr><th className="text-left">Category</th><th>Current</th><th>Target</th><th>Gap</th></tr>
           </thead>
           <tbody>
@@ -59,11 +59,11 @@ function Donut({ title, current, target }: { title: string; current: Record<stri
               const t = target?.[cat] ?? 0;
               const gap = c - t;
               return (
-                <tr key={cat} className="border-t border-white/[0.05]">
-                  <td className="py-1 text-ink-100">{cat}</td>
-                  <td className="metric-num text-right">{c.toFixed(1)}%</td>
-                  <td className="metric-num text-right">{t.toFixed(1)}%</td>
-                  <td className={`metric-num text-right ${gap > 5 ? 'text-rose-300' : gap < -5 ? 'text-amber-300' : 'text-emerald-300'}`}>{gap >= 0 ? '+' : ''}{gap.toFixed(1)}%</td>
+                <tr key={cat} className="border-t border-token-border">
+                  <td className="py-1 text-token-fg">{cat}</td>
+                  <td className="metric-num text-right text-token-fg">{c.toFixed(1)}%</td>
+                  <td className="metric-num text-right text-token-fg">{t.toFixed(1)}%</td>
+                  <td className={`metric-num text-right ${gap > 5 ? 'text-negative' : gap < -5 ? 'text-warning' : 'text-positive'}`}>{gap >= 0 ? '+' : ''}{gap.toFixed(1)}%</td>
                 </tr>
               );
             })}
@@ -77,7 +77,7 @@ function Donut({ title, current, target }: { title: string; current: Record<stri
 export function AllocationVsTarget({ allocation, target }: { allocation: AllocationBuckets; target: any }) {
   return (
     <section>
-      <h2 className="mb-2 font-mono text-[10px] uppercase tracking-[0.18em] text-accent-steel">Allocation vs target</h2>
+      <h2 className="mb-2 font-mono text-[10px] uppercase tracking-[0.18em] text-token-fg-muted">Allocation vs target</h2>
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 xl:grid-cols-4">
         <Donut title="Asset class" current={allocation.asset_class} target={target.asset_class} />
         <Donut title="Geography" current={allocation.geography} target={target.geography} />

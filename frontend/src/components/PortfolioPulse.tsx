@@ -8,8 +8,8 @@ export function PortfolioPulse({ bundle }: Props) {
   const pulse = bundle.pulse;
   const day = bundle.revalued.day_pnl_pct;
   const score = pulse.health_score;
-  const toneText = score >= 70 ? 'text-emerald-300' : score >= 45 ? 'text-amber-300' : 'text-rose-300';
-  const toneBg = score >= 70 ? 'bg-emerald-400' : score >= 45 ? 'bg-amber-400' : 'bg-rose-400';
+  const toneText = score >= 70 ? 'text-positive' : score >= 45 ? 'text-warning' : 'text-negative';
+  const toneBg  = score >= 70 ? 'bg-token-positive' : score >= 45 ? 'bg-token-warning' : 'bg-token-negative';
   const positions = bundle.positions
     .filter((p) => p.asset_class === 'Equity')
     .sort((a, b) => Math.abs((b.quote.day_change_pct || 0)) - Math.abs((a.quote.day_change_pct || 0)))
@@ -20,39 +20,39 @@ export function PortfolioPulse({ bundle }: Props) {
       <div>
         <div className="flex items-center justify-between">
           <div>
-            <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-accent-steel">Portfolio Pulse</div>
-            <div className="metric-num mt-1 font-display text-4xl font-bold">{fmtUsd(bundle.revalued.total_value_usd)}</div>
-            <div className={`metric-num mt-1 text-sm ${day >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>{fmtPct(day)} today ({fmtUsd(bundle.revalued.day_pnl_usd)})</div>
+            <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-token-fg-muted">Portfolio Pulse</div>
+            <div className="metric-num mt-1 font-display text-4xl font-bold text-token-fg">{fmtUsd(bundle.revalued.total_value_usd)}</div>
+            <div className={`metric-num mt-1 text-sm ${day >= 0 ? 'text-positive' : 'text-negative'}`}>{fmtPct(day)} today ({fmtUsd(bundle.revalued.day_pnl_usd)})</div>
           </div>
           <div className="text-right">
-            <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-accent-steel">Health</div>
+            <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-token-fg-muted">Health</div>
             <div className={`metric-num mt-1 font-display text-3xl font-bold ${toneText}`}>{score}</div>
-            <div className="mt-1 h-1.5 w-32 overflow-hidden rounded-full bg-white/10">
+            <div className="mt-1 h-1.5 w-32 overflow-hidden rounded-full bg-token-surface-elevated">
               <div className={`h-full ${toneBg}`} style={{ width: `${score}%` }} />
             </div>
           </div>
         </div>
-        <p className="mt-4 max-w-2xl text-sm leading-relaxed text-ink-100">{pulse.narrative}</p>
+        <p className="mt-4 max-w-2xl text-sm leading-relaxed text-token-fg">{pulse.narrative}</p>
         {pulse.degraded && (
-          <div className="mt-2 font-mono text-[10px] uppercase tracking-wider text-amber-300">
+          <div className="mt-2 font-mono text-[10px] uppercase tracking-wider text-warning">
             Narrative running in offline mode — set ANTHROPIC_API_KEY for AI voice.
           </div>
         )}
-        <div className="mt-4 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.15em] text-accent-steel">
-          <Sparkles size={12} className="text-accent-gold" /> AI-generated · validated by QAAgent
+        <div className="mt-4 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.15em] text-token-fg-muted">
+          <Sparkles size={12} className="text-token-accent" /> AI-generated · validated by QAAgent
         </div>
       </div>
       <div className="space-y-2">
-        <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-accent-steel">Top movers</div>
+        <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-token-fg-muted">Top movers</div>
         {positions.map((p) => {
           const dp = p.quote.day_change_pct || 0;
           return (
-            <div key={p.ticker} className="flex items-center justify-between rounded-lg border border-white/[0.05] bg-white/[0.02] px-3 py-2">
+            <div key={p.ticker} className="flex items-center justify-between rounded-lg border border-token-border bg-token-surface-elevated px-3 py-2">
               <div>
-                <div className="text-sm font-semibold">{p.ticker}</div>
-                <div className="text-[11px] text-accent-steel">{p.name}</div>
+                <div className="text-sm font-semibold text-token-fg">{p.ticker}</div>
+                <div className="text-[11px] text-token-fg-muted">{p.name}</div>
               </div>
-              <div className={`metric-num text-sm ${dp >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>{fmtPct(dp)}</div>
+              <div className={`metric-num text-sm ${dp >= 0 ? 'text-positive' : 'text-negative'}`}>{fmtPct(dp)}</div>
             </div>
           );
         })}
