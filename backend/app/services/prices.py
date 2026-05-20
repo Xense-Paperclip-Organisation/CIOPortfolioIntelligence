@@ -1,80 +1,42 @@
 """Live market-price service.
 
-Primary source is yfinance (free, unofficial Yahoo Finance wrapper). Coverage:
-- US equities + ADRs work out of the box (`AAPL`, `NVDA`, `TSLA`, ...).
-- Tadawul/KSA tickers via `.SR` suffix (e.g. `2222.SR`).
-- DFM/UAE via `.DU` suffix (e.g. `EMAAR.DU`). Coverage on DFM is thin and we
-  fall back to a synthesized walk based on the last cached close if yfinance
-  returns nothing — clearly marked `synthesized: true` in the payload.
+Active provider is selected by the PRICE_PROVIDER env var (default: yfinance).
+An optional PRICE_PROVIDER_SHADOW runs in parallel; its result is logged for
+comparison only — it never reaches the caller. This allows safe 1-week shadow
+validation before a hard cutover.
 
-Aggressively cached because yfinance is rate-limited and unofficial — BRD risk
-register §12 calls this out as a known production migration item.
+Fallback chain (always):
+  active provider → synthesized random-walk (marked synthesized: true)
+
+Coverage notes:
+  yfinance  — US + .SR (Tadawul) + .DU (DFM, thin)
+  polygon   — US only; .SR/.DU symbols fall back to synth
+  alpha_vantage — US only; free tier is 25 req/day
 """
 from __future__ import annotations
 
 import logging
-import math
 import random
 import time
+import threading
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-import pandas as pd
-import yfinance as yf
-
 from ..cache import cache_get, cache_set
 from ..config import get_settings
+from .price_providers import get_active_provider, get_shadow_provider
 
 log = logging.getLogger("services.prices")
-
 
 VALID_TIMEFRAMES = ("1m", "5m", "1h", "1d", "1mo", "1yr")
 
 
-def _tf_to_yf(timeframe: str) -> tuple[str, str]:
-    """Map BRD timeframes to (period, interval) tuples for yf.Ticker.history."""
-    return {
-        "1m": ("1d", "1m"),
-        "5m": ("5d", "5m"),
-        "1h": ("1mo", "1h"),
-        "1d": ("6mo", "1d"),
-        "1mo": ("5y", "1mo"),
-        "1yr": ("max", "3mo"),
-    }[timeframe]
-
-
-def _df_to_candles(df: pd.DataFrame) -> list[dict[str, Any]]:
-    if df is None or df.empty:
-        return []
-    out: list[dict[str, Any]] = []
-    df = df.reset_index()
-    ts_col = df.columns[0]
-    for _, row in df.iterrows():
-        ts = row[ts_col]
-        if hasattr(ts, "to_pydatetime"):
-            ts = ts.to_pydatetime()
-        if isinstance(ts, datetime):
-            ts_iso = ts.replace(tzinfo=ts.tzinfo or timezone.utc).astimezone(timezone.utc).isoformat()
-        else:
-            ts_iso = str(ts)
-        try:
-            open_ = float(row.get("Open"))
-            high_ = float(row.get("High"))
-            low_ = float(row.get("Low"))
-            close_ = float(row.get("Close"))
-            vol_ = float(row.get("Volume", 0) or 0)
-        except (TypeError, ValueError):
-            continue
-        if any(math.isnan(x) for x in (open_, high_, low_, close_)):
-            continue
-        out.append({"t": ts_iso, "o": open_, "h": high_, "l": low_, "c": close_, "v": vol_})
-    return out
-
+# ---------------------------------------------------------------------------
+# Helpers shared by multiple call sites (synthesized fallback, sukuk estimate)
+# ---------------------------------------------------------------------------
 
 def _synth_candles(seed: str, count: int = 90) -> list[dict[str, Any]]:
-    """Last-resort synthesized candle series when yfinance fails. Always
-    marked `synthesized: true` upstream so the UI can flag it transparently.
-    """
+    """Last-resort synthesized candle series. Always marked synthesized: true."""
     rng = random.Random(seed)
     base = 100.0
     out: list[dict[str, Any]] = []
@@ -97,98 +59,119 @@ def _synth_candles(seed: str, count: int = 90) -> list[dict[str, Any]]:
     return out
 
 
+def _synth_quote(symbol: str) -> dict[str, Any]:
+    seed = f"{symbol}:{int(time.time() // 600)}"
+    rng = random.Random(seed)
+    base = 100 + (hash(symbol) % 300)
+    day_change = rng.gauss(0, 1.2)
+    return {
+        "symbol": symbol,
+        "price": round(base * (1 + day_change / 100), 4),
+        "open": round(base, 4),
+        "high": round(base * 1.01, 4),
+        "low": round(base * 0.99, 4),
+        "previous_close": round(base, 4),
+        "day_change_abs": round(base * day_change / 100, 4),
+        "day_change_pct": round(day_change, 4),
+        "week_change_pct": round(rng.gauss(0, 2.5), 4),
+        "volume": int(rng.uniform(1e5, 2e6)),
+        "as_of": datetime.now(timezone.utc).isoformat(),
+        "source": "synthesized-fallback",
+        "synthesized": True,
+    }
+
+
+def _synth_closes(symbol: str, days: int) -> list[float]:
+    rng = random.Random(symbol)
+    base = 100.0
+    closes: list[float] = []
+    for _ in range(days):
+        base *= (1 + rng.gauss(0.0004, 0.018))
+        closes.append(round(base, 4))
+    return closes
+
+
+# ---------------------------------------------------------------------------
+# Shadow-run (fire-and-forget; errors are swallowed)
+# ---------------------------------------------------------------------------
+
+def _shadow_run_quote(shadow_symbol: str) -> None:
+    try:
+        shadow = get_shadow_provider()
+        if shadow is None:
+            return
+        result = shadow.get_quote(shadow_symbol)
+        log.info("SHADOW quote %s → %s", shadow_symbol, result)
+    except Exception as exc:
+        log.debug("Shadow quote error for %s: %s", shadow_symbol, exc)
+
+
+def _shadow_run_candles(shadow_symbol: str, timeframe: str) -> None:
+    try:
+        shadow = get_shadow_provider()
+        if shadow is None:
+            return
+        result = shadow.get_candles(shadow_symbol, timeframe)
+        log.info("SHADOW candles %s/%s → %d bars", shadow_symbol, timeframe, len(result))
+    except Exception as exc:
+        log.debug("Shadow candles error for %s/%s: %s", shadow_symbol, timeframe, exc)
+
+
+def _fire_shadow(fn, *args) -> None:
+    """Run shadow fn in a daemon thread so it never blocks the response."""
+    t = threading.Thread(target=fn, args=args, daemon=True)
+    t.start()
+
+
+# ---------------------------------------------------------------------------
+# Public API
+# ---------------------------------------------------------------------------
+
 def get_quote(symbol: str) -> dict[str, Any] | None:
-    """Return latest live quote for a Yahoo-compatible symbol."""
     if not symbol:
         return None
-    cache_key = f"quote:{symbol}"
+    cache_key = f"quote:{symbol}:{get_settings().price_provider}"
     cached = cache_get(cache_key)
     if cached is not None:
         return cached
 
-    quote: dict[str, Any] | None = None
-    try:
-        tkr = yf.Ticker(symbol)
-        hist = tkr.history(period="5d", interval="1d", auto_adjust=False)
-        if hist is not None and not hist.empty:
-            last = hist.iloc[-1]
-            prev = hist.iloc[-2] if len(hist) > 1 else last
-            week_first = hist.iloc[0]
-            quote = {
-                "symbol": symbol,
-                "price": float(last["Close"]),
-                "open": float(last["Open"]),
-                "high": float(last["High"]),
-                "low": float(last["Low"]),
-                "previous_close": float(prev["Close"]),
-                "day_change_abs": float(last["Close"]) - float(prev["Close"]),
-                "day_change_pct": (float(last["Close"]) - float(prev["Close"])) / float(prev["Close"]) * 100
-                    if float(prev["Close"]) else 0.0,
-                "week_change_pct": (float(last["Close"]) - float(week_first["Close"])) / float(week_first["Close"]) * 100
-                    if float(week_first["Close"]) else 0.0,
-                "volume": float(last.get("Volume", 0) or 0),
-                "as_of": last.name.isoformat() if hasattr(last.name, "isoformat") else str(last.name),
-                "source": "yfinance",
-                "synthesized": False,
-            }
-    except Exception as exc:
-        log.warning("yfinance quote failed for %s: %s", symbol, exc)
+    # Shadow run (async, no-wait)
+    if get_settings().price_provider_shadow:
+        _fire_shadow(_shadow_run_quote, symbol)
+
+    provider = get_active_provider()
+    quote = provider.get_quote(symbol)
 
     if quote is None:
-        # Synthesized fallback so the UI keeps working under rate-limit /
-        # network failure.  Clearly flagged.
-        seed = f"{symbol}:{int(time.time() // 600)}"
-        rng = random.Random(seed)
-        base = 100 + (hash(symbol) % 300)
-        day_change = rng.gauss(0, 1.2)
-        quote = {
-            "symbol": symbol,
-            "price": round(base * (1 + day_change / 100), 4),
-            "open": round(base, 4),
-            "high": round(base * 1.01, 4),
-            "low": round(base * 0.99, 4),
-            "previous_close": round(base, 4),
-            "day_change_abs": round(base * day_change / 100, 4),
-            "day_change_pct": round(day_change, 4),
-            "week_change_pct": round(rng.gauss(0, 2.5), 4),
-            "volume": int(rng.uniform(1e5, 2e6)),
-            "as_of": datetime.now(timezone.utc).isoformat(),
-            "source": "synthesized-fallback",
-            "synthesized": True,
-        }
+        quote = _synth_quote(symbol)
 
     cache_set(cache_key, quote, ttl_seconds=get_settings().price_cache_ttl_seconds)
     return quote
 
 
 def get_candles(symbol: str, timeframe: str) -> dict[str, Any]:
-    """Return OHLCV candle series for the requested BRD-defined timeframe."""
     if timeframe not in VALID_TIMEFRAMES:
         raise ValueError(f"unknown timeframe {timeframe!r} — expected {VALID_TIMEFRAMES}")
 
-    cache_key = f"candles:{symbol}:{timeframe}"
+    cache_key = f"candles:{symbol}:{timeframe}:{get_settings().price_provider}"
     cached = cache_get(cache_key)
     if cached is not None:
         return cached
 
-    period, interval = _tf_to_yf(timeframe)
-    synthesized = False
-    candles: list[dict[str, Any]] = []
-    try:
-        tkr = yf.Ticker(symbol)
-        df = tkr.history(period=period, interval=interval, auto_adjust=False)
-        candles = _df_to_candles(df)
-    except Exception as exc:
-        log.warning("yfinance candles failed for %s/%s: %s", symbol, timeframe, exc)
-    if not candles:
-        synthesized = True
+    if get_settings().price_provider_shadow:
+        _fire_shadow(_shadow_run_candles, symbol, timeframe)
+
+    provider = get_active_provider()
+    candles = provider.get_candles(symbol, timeframe)
+    synthesized = not candles
+    if synthesized:
         candles = _synth_candles(f"{symbol}:{timeframe}")
 
     payload = {
         "symbol": symbol,
         "timeframe": timeframe,
         "candles": candles,
-        "source": "yfinance" if not synthesized else "synthesized-fallback",
+        "source": get_settings().price_provider if not synthesized else "synthesized-fallback",
         "synthesized": synthesized,
         "as_of": datetime.now(timezone.utc).isoformat(),
     }
@@ -197,26 +180,16 @@ def get_candles(symbol: str, timeframe: str) -> dict[str, Any]:
 
 
 def get_close_history(symbol: str, days: int = 365) -> list[float]:
-    """Return last `days` daily closes — used for risk-metric calculations."""
-    cache_key = f"closes:{symbol}:{days}"
+    cache_key = f"closes:{symbol}:{days}:{get_settings().price_provider}"
     cached = cache_get(cache_key)
     if cached is not None:
         return cached
-    closes: list[float] = []
-    try:
-        tkr = yf.Ticker(symbol)
-        df = tkr.history(period=f"{max(days, 30)}d", interval="1d", auto_adjust=False)
-        if df is not None and not df.empty:
-            closes = [float(x) for x in df["Close"].dropna().tolist()]
-    except Exception as exc:
-        log.warning("yfinance close history failed for %s: %s", symbol, exc)
+
+    provider = get_active_provider()
+    closes = provider.get_close_history(symbol, days)
     if not closes:
-        # Fallback random-walk so risk endpoints remain available.
-        rng = random.Random(symbol)
-        base = 100.0
-        for _ in range(days):
-            base *= (1 + rng.gauss(0.0004, 0.018))
-            closes.append(round(base, 4))
+        closes = _synth_closes(symbol, days)
+
     cache_set(cache_key, closes, ttl_seconds=get_settings().price_cache_ttl_seconds)
     return closes
 
@@ -227,16 +200,12 @@ def get_benchmark_closes(symbol: str = "^GSPC", days: int = 365) -> list[float]:
 
 def sukuk_price_estimate(coupon_pct: float, maturity_iso: str, duration_years: float,
                          current_yield_pct: float) -> dict[str, Any]:
-    """Synthesize a sukuk clean price from the live yield curve + duration.
-
-    Honest about the synthesis (BRD risk register): we return ``synthesized: true``.
-    """
+    """Synthesize a sukuk clean price from the live yield curve + duration."""
     try:
         maturity = datetime.fromisoformat(maturity_iso)
     except Exception:
         maturity = datetime.now() + timedelta(days=365 * 5)
     years_to_maturity = max(0.25, (maturity - datetime.now()).days / 365.25)
-    # Simple price ≈ 100 + (coupon - yield) * duration. Mark-to-market only.
     price = 100.0 + (coupon_pct - current_yield_pct) * min(duration_years, years_to_maturity)
     return {
         "price": round(price, 4),

@@ -12,6 +12,13 @@ class Settings(BaseSettings):
 
     alpha_vantage_api_key: str = ""
     fred_api_key: str = ""
+    polygon_api_key: str = ""
+
+    # Feature flag: "yfinance" | "polygon" | "alpha_vantage"
+    # When shadow mode is enabled the active provider runs normally and the
+    # shadow provider runs in parallel; results are logged for comparison only.
+    price_provider: str = "yfinance"
+    price_provider_shadow: str = ""  # empty = no shadow run
 
     redis_url: str = "redis://redis:6379/0"
     price_cache_ttl_seconds: int = 300
