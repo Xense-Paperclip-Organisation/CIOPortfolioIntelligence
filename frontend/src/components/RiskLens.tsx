@@ -12,7 +12,14 @@ function corrCellColor(v: number): string {
   return 'rgba(25,184,158,0.85)';
 }
 
-export function RiskLens({ risk, positions }: { risk: RiskMetrics; positions: Position[] }) {
+export function RiskLens({ risk, positions }: { risk: RiskMetrics | null; positions: Position[] }) {
+  if (!risk) {
+    return (
+      <section className="card p-6 text-sm text-token-fg-muted">
+        Risk metrics unavailable — backend did not return data.
+      </section>
+    );
+  }
   const port = risk.portfolio || {};
   const corr = risk.correlation || { symbols: [], matrix: [] };
   return (
@@ -44,7 +51,7 @@ export function RiskLens({ risk, positions }: { risk: RiskMetrics; positions: Po
                   <tr key={s}>
                     <th className="bg-token-surface px-2 py-1 text-right font-mono uppercase tracking-wider text-token-fg-muted">{s}</th>
                     {corr.matrix[i].map((v, j) => (
-                      <td key={j} style={{ background: corrCellColor(v) }} className="px-2 py-1 text-center metric-num">{v.toFixed(2)}</td>
+                      <td key={j} style={{ background: corrCellColor(v) }} className="px-2 py-1 text-center metric-num">{v?.toFixed(2) ?? '—'}</td>
                     ))}
                   </tr>
                 ))}

@@ -17,17 +17,23 @@ export function AskTheCIO() {
 
   const send = async () => {
     if (!input.trim()) return;
-    const user: Msg = { role: 'user', content: input.trim() };
-    setInput('');
+    const text = input.trim();
+    const user: Msg = { role: 'user', content: text };
+    // Keep last 10 turns (5 pairs) to cap context size
+    const history = [...messages, user].slice(-10);
     setMessages((m) => [...m, user]);
+    setInput('');
     setBusy(true);
     try {
-      const history = [...messages, user];
-      const h = btoa(unescape(encodeURIComponent(JSON.stringify(history))));
-      const res = await apiFetch<{ reply: Msg }>(`/api/chat?h=${encodeURIComponent(h)}`);
+      // Use URL-safe base64 in the path (not query string) so xense.dev proxy
+      // doesn't strip it — the proxy preserves path segments but drops query strings.
+      const h = btoa(unescape(encodeURIComponent(JSON.stringify(history))))
+        .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+      const res = await apiFetch<{ reply: Msg }>(`/api/chat/${h}`);
       setMessages((m) => [...m, res.reply]);
     } catch (e: any) {
-      setMessages((m) => [...m, { role: 'assistant', content: `Chat error: ${e?.message ?? 'unknown'}` }]);
+      setMessages((m) => [...m, { role: 'assistant', content: 'Something went wrong — please retry.' }]);
+      setInput(text); // restore input so the question is not lost
     } finally {
       setBusy(false);
     }

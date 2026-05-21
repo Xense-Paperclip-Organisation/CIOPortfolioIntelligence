@@ -10,6 +10,7 @@ export function ScenarioSimulator() {
   const [result, setResult] = useState<ScenarioResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
     apiFetch<{ scenarios: any[] }>('/api/scenarios').then((d) => setScenarios(d.scenarios)).catch(() => {});
@@ -25,7 +26,7 @@ export function ScenarioSimulator() {
       .catch((e) => { if (!cancelled) { setResult(null); setError(e?.message ?? 'Scenario unavailable'); } })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [activeId]);
+  }, [activeId, retryCount]);
 
   const tornadoData = result?.per_holding
     ?.slice()
@@ -38,7 +39,7 @@ export function ScenarioSimulator() {
         <h2 className="font-mono text-[10px] uppercase tracking-[0.18em] text-token-fg-muted">Scenario simulator</h2>
         {result && (
           <span className={`pill ${result.total_portfolio_impact_pct >= 0 ? 'pill-pos' : 'pill-neg'}`}>
-            portfolio {result.total_portfolio_impact_pct.toFixed(1)}%
+            portfolio {result.total_portfolio_impact_pct?.toFixed(1) ?? '—'}%
           </span>
         )}
       </div>
@@ -53,8 +54,23 @@ export function ScenarioSimulator() {
           </button>
         ))}
       </div>
-      {loading && <div className="text-[11px] text-token-fg-muted">Running scenario…</div>}
-      {!loading && error && <div className="text-[11px] text-red-400">Error: {error}</div>}
+      {loading && (
+        <div className="flex items-center gap-2 text-[11px] text-token-fg-muted">
+          <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-token-fg-muted/30 border-t-token-fg-muted" />
+          Running scenario…
+        </div>
+      )}
+      {!loading && error && (
+        <div className="flex items-center justify-between rounded-md border border-negative/30 bg-negative/5 px-3 py-2">
+          <span className="text-[11px] text-negative">{error}</span>
+          <button
+            onClick={() => setRetryCount(c => c + 1)}
+            className="ml-3 inline-flex items-center gap-1 rounded border border-token-border px-2 py-0.5 text-[10px] text-token-fg-muted hover:text-token-fg"
+          >
+            Retry
+          </button>
+        </div>
+      )}
       {result && (
         <>
           <p className="text-[12px] leading-relaxed text-token-fg">{result.rationale}</p>

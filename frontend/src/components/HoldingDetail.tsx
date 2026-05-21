@@ -1,9 +1,9 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import { createChart, ColorType, IChartApi, CandlestickSeriesPartialOptions } from 'lightweight-charts';
-import { apiFetch, fmtPct } from '@/lib/api';
+import { apiFetch, fmtPct, fmtUsd } from '@/lib/api';
 import type { Candle, ChartExplanation, Position } from '@/types/api';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, NotebookPen, RefreshCw } from 'lucide-react';
 
 const TIMEFRAMES = ['1m', '5m', '1h', '1d', '1mo', '1yr'] as const;
 type TF = typeof TIMEFRAMES[number];
@@ -14,12 +14,15 @@ export function HoldingDetail({ ticker, position }: { ticker: string; position: 
   const [explanation, setExplanation] = useState<ChartExplanation | null>(null);
   const [news, setNews] = useState<{ id: string; title: string; source: string; link: string; published?: string | null }[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
   const chartRef = useRef<IChartApi | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
+    setFetchError(null);
     Promise.all([
       apiFetch<{ candles: Candle[] }>(`/api/holdings/${encodeURIComponent(ticker)}/candles?timeframe=${tf}`),
       apiFetch<{ explanation: ChartExplanation }>(`/api/holdings/${encodeURIComponent(ticker)}/chart-explanation?timeframe=${tf}`),
@@ -30,9 +33,13 @@ export function HoldingDetail({ ticker, position }: { ticker: string; position: 
       setExplanation(e.explanation);
       setNews(n.items || []);
       setLoading(false);
-    }).catch(() => setLoading(false));
+    }).catch((err) => {
+      if (cancelled) return;
+      setFetchError(err?.message ?? 'Failed to load holding data');
+      setLoading(false);
+    });
     return () => { cancelled = true; };
-  }, [ticker, tf]);
+  }, [ticker, tf, retryCount]);
 
   useEffect(() => {
     if (!containerRef.current || !candles.length) return;
@@ -69,6 +76,20 @@ export function HoldingDetail({ ticker, position }: { ticker: string; position: 
     return () => { window.removeEventListener('resize', resize); chart.remove(); };
   }, [candles]);
 
+  if (fetchError) {
+    return (
+      <div className="rounded-md border border-negative/30 bg-negative/5 p-4 text-[12px] text-negative">
+        <span>{fetchError}</span>
+        <button
+          onClick={() => setRetryCount(c => c + 1)}
+          className="ml-3 inline-flex items-center gap-1 rounded border border-token-border px-2 py-0.5 text-[11px] text-token-fg-muted hover:text-token-fg"
+        >
+          <RefreshCw size={11} /> Retry
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-[2fr_1fr]">
       <div>
@@ -95,14 +116,15 @@ export function HoldingDetail({ ticker, position }: { ticker: string; position: 
           </div>
         )}
       </div>
-      <div className="space-y-2">
+      <div className="space-y-3">
+        <PositionNotes position={position} />
         <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.15em] text-token-accent">
           <Sparkles size={12} /> AI chart explanation
         </div>
         {explanation ? (
           <div className="card p-3 text-[12px] leading-relaxed">
             <Row label="Direction" value={`${explanation.direction.tag} (${fmtPct(explanation.direction.pct)})`} />
-            <Row label="Range" value={`${explanation.range.low.toFixed(2)} – ${explanation.range.high.toFixed(2)}`} />
+            <Row label="Range" value={`${explanation.range.low?.toFixed(2) ?? '—'} – ${explanation.range.high?.toFixed(2) ?? '—'}`} />
             <Row label="Volume" value={explanation.volume_tag} />
             <Row label="Pattern" value={`${explanation.pattern.name} — ${explanation.pattern.explanation}`} />
             <Row label="Key moment" value={explanation.key_moment} />
@@ -113,6 +135,36 @@ export function HoldingDetail({ ticker, position }: { ticker: string; position: 
           </div>
         ) : (
           <div className="text-[11px] text-token-fg-muted">Loading chart commentary…</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function PositionNotes({ position }: { position: Position }) {
+  const dayPnl = position.day_pnl_usd ?? 0;
+  const costBasis = position.cost_basis_per_share;
+  const unrealized = position.unrealized_pnl_native;
+  return (
+    <div>
+      <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.15em] text-token-fg-muted">
+        <NotebookPen size={12} /> Position notes
+      </div>
+      <div className="mt-1 card p-3 text-[12px]">
+        <Row label="Asset class" value={position.asset_class} />
+        <Row label="Geography" value={position.geography} />
+        {position.sector && <Row label="Sector" value={position.sector} />}
+        <Row label="Currency" value={position.currency} />
+        <Row label="Weight" value={`${position.weight_pct?.toFixed(2) ?? '—'}%`} />
+        <Row label="Value (USD)" value={fmtUsd(position.value_usd, { compact: true })} />
+        <Row
+          label="Day P&L"
+          value={`${dayPnl >= 0 ? '+' : ''}${fmtUsd(dayPnl, { compact: true })}`}
+        />
+        {typeof position.shares === 'number' && <Row label="Shares" value={position.shares.toLocaleString()} />}
+        {typeof costBasis === 'number' && <Row label="Cost basis / share" value={costBasis.toFixed(2)} />}
+        {typeof unrealized === 'number' && (
+          <Row label="Unrealized P&L (native)" value={`${unrealized >= 0 ? '+' : ''}${unrealized.toFixed(2)}`} />
         )}
       </div>
     </div>

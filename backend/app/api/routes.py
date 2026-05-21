@@ -4,6 +4,9 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
+import base64
+import json as _json
+
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import Response
@@ -251,8 +254,7 @@ class ChatRequest(BaseModel):
     messages: list[dict[str, str]]
 
 
-@router.post("/chat")
-async def chat(body: ChatRequest) -> dict[str, Any]:
+async def _chat_handler(messages: list[dict[str, str]]) -> dict[str, Any]:
     bundle = await _portfolio_bundle()
     risk = await run_in_threadpool(risk_svc.portfolio_risk, bundle["positions"])
     ctx = {
@@ -266,8 +268,43 @@ async def chat(body: ChatRequest) -> dict[str, Any]:
         "risk": risk.get("portfolio", {}),
         "stated_risk_profile": "Balanced (Moderate Growth)",
     }
-    reply = await run_in_threadpool(chat_agent.respond, body.messages, ctx)
+    reply = await run_in_threadpool(chat_agent.respond, messages, ctx)
     return {"reply": reply, "context_keys": list(ctx.keys())}
+
+
+def _decode_chat_h(h: str) -> list[dict[str, str]]:
+    """Decode URL-safe base64 chat history. Accepts both standard and URL-safe b64."""
+    h_norm = h.replace('-', '+').replace('_', '/')
+    h_norm += '=' * (-len(h_norm) % 4)
+    messages = _json.loads(base64.b64decode(h_norm).decode())
+    if not isinstance(messages, list):
+        raise ValueError("messages must be a list")
+    return messages
+
+
+@router.get("/chat")
+async def chat_get(h: str = Query(..., description="base64-encoded JSON array of {role,content} messages")) -> dict[str, Any]:
+    """GET variant — query-param form (direct callers)."""
+    try:
+        messages = _decode_chat_h(h)
+    except Exception as exc:
+        raise HTTPException(400, f"Invalid h param: {exc}") from exc
+    return await _chat_handler(messages)
+
+
+@router.get("/chat/{h:path}")
+async def chat_get_path(h: str) -> dict[str, Any]:
+    """GET variant — path form for proxies that strip query strings (e.g. xense.dev)."""
+    try:
+        messages = _decode_chat_h(h)
+    except Exception as exc:
+        raise HTTPException(400, f"Invalid h param: {exc}") from exc
+    return await _chat_handler(messages)
+
+
+@router.post("/chat")
+async def chat(body: ChatRequest) -> dict[str, Any]:
+    return await _chat_handler(body.messages)
 
 
 # RM Routing (stub) -----------------------------------------------------
