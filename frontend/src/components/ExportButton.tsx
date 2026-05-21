@@ -1,7 +1,21 @@
 'use client';
+import { useEffect, useState } from 'react';
 import { Printer } from 'lucide-react';
 
+// Paperclip's plugin reverse-proxy mounts this app at /_plugins/<key>/ui/...
+// and strips that prefix before forwarding to upstream. Root-relative hrefs
+// like "/api/export/pdf" therefore resolve to https://host/api/... and 404
+// outside the proxy mount. Detect the prefix at runtime and prepend it.
+function computePdfHref(): string {
+  if (typeof window === 'undefined') return '/api/export/pdf';
+  const m = window.location.pathname.match(/^(\/_plugins\/[^/]+\/ui)(?=\/|$)/);
+  return (m ? m[1] : '') + '/api/export/pdf';
+}
+
 export function ExportButton() {
+  const [pdfHref, setPdfHref] = useState('/api/export/pdf');
+  useEffect(() => { setPdfHref(computePdfHref()); }, []);
+
   return (
     <section className="card flex items-center justify-between p-5">
       <div>
@@ -19,7 +33,7 @@ export function ExportButton() {
           <Printer size={12} /> Print to PDF
         </button>
         <a
-          href="/api/export/pdf"
+          href={pdfHref}
           target="_blank"
           rel="noreferrer"
           className="inline-flex items-center gap-1 rounded-md border border-token-border bg-token-surface-elevated px-3 py-2 text-xs font-medium text-token-fg-muted hover:border-token-accent/40 hover:text-accent"
