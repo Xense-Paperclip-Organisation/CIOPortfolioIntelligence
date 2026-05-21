@@ -28,8 +28,11 @@ async function loadDashboard() {
     pulse: pulse.status === 'fulfilled' ? pulse.value : null,
     pulseError: pulse.status === 'rejected' ? (pulse.reason as Error).message : null,
     news: news.status === 'fulfilled' ? news.value : null,
+    newsError: news.status === 'rejected' ? (news.reason as Error).message : null,
     advisory: advisory.status === 'fulfilled' ? advisory.value : null,
-    macro: macro.status === 'fulfilled' ? macro.value : null
+    advisoryError: advisory.status === 'rejected' ? (advisory.reason as Error).message : null,
+    macro: macro.status === 'fulfilled' ? macro.value : null,
+    macroError: macro.status === 'rejected' ? (macro.reason as Error).message : null
   };
 }
 
@@ -47,17 +50,17 @@ export default async function HomePage() {
       </div>
     );
   }
-  const { pulse, news, advisory, macro } = data;
+  const { pulse, news, newsError, advisory, advisoryError, macro } = data;
   return (
     <div className="space-y-6 pb-8">
       <CustomerHeader bundle={pulse} macro={macro} />
       <PortfolioPulse bundle={pulse} />
       <AlignmentBanner alerts={pulse.alerts} />
-      <AllocationVsTarget allocation={pulse.allocation} target={pulse.target} />
+      <AllocationVsTarget allocation={pulse.allocation} target={pulse.target} positions={pulse.positions} />
       <HoldingsGrid positions={pulse.positions} />
-      <ArticlesFeed articles={news?.articles ?? []} />
+      <ArticlesFeed articles={news?.articles ?? []} error={newsError ?? undefined} />
       <RiskLens risk={pulse.risk} positions={pulse.positions} />
-      <AdvisoryCard advisory={advisory?.advisory ?? null} />
+      <AdvisoryCard advisory={advisory?.advisory ?? null} error={advisoryError ?? undefined} />
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <CatalystsList />
         <ScenarioSimulator />
