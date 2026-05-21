@@ -1,5 +1,6 @@
 import type { Article } from '@/types/api';
 import { Sparkles, ExternalLink } from 'lucide-react';
+import { CardError } from '@/components/CardStates';
 
 const DIRECTION_CLS: Record<string, string> = {
   positive: 'pill-pos',
@@ -7,7 +8,10 @@ const DIRECTION_CLS: Record<string, string> = {
   neutral:  'pill-neu'
 };
 
-export function ArticlesFeed({ articles }: { articles: Article[] }) {
+export function ArticlesFeed({ articles, error }: { articles: Article[]; error?: string }) {
+  if (error) {
+    return <CardError message={`News feed unavailable: ${error}`} />;
+  }
   const list = articles.slice(0, 6);
   if (!list.length) {
     return (

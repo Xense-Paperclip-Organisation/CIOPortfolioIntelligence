@@ -10,6 +10,7 @@ import pandas as pd
 import yfinance as yf
 
 from .base import PriceProvider
+from ...logging_config import log_ctx
 
 log = logging.getLogger("services.prices.yfinance")
 
@@ -83,7 +84,7 @@ class YFinanceProvider(PriceProvider):
                     "synthesized": False,
                 }
         except Exception as exc:
-            log.warning("yfinance quote failed for %s: %s", symbol, exc)
+            log_ctx(log, logging.WARNING, "yfinance quote failed", symbol=symbol, error=str(exc), exc_type=type(exc).__name__)
         return None
 
     def get_candles(self, symbol: str, timeframe: str) -> list[dict[str, Any]]:
@@ -93,7 +94,7 @@ class YFinanceProvider(PriceProvider):
             df = tkr.history(period=period, interval=interval, auto_adjust=False)
             return _df_to_candles(df)
         except Exception as exc:
-            log.warning("yfinance candles failed for %s/%s: %s", symbol, timeframe, exc)
+            log_ctx(log, logging.WARNING, "yfinance candles failed", symbol=symbol, timeframe=timeframe, error=str(exc), exc_type=type(exc).__name__)
             return []
 
     def get_close_history(self, symbol: str, days: int = 365) -> list[float]:
@@ -103,5 +104,5 @@ class YFinanceProvider(PriceProvider):
             if df is not None and not df.empty:
                 return [float(x) for x in df["Close"].dropna().tolist()]
         except Exception as exc:
-            log.warning("yfinance close history failed for %s: %s", symbol, exc)
+            log_ctx(log, logging.WARNING, "yfinance close history failed", symbol=symbol, days=days, error=str(exc), exc_type=type(exc).__name__)
         return []

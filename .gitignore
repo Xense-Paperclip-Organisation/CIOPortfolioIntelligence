@@ -24,3 +24,4 @@ coverage/
 .mypy_cache/
 .ruff_cache/
 docs/screenshots/*.tmp
+*.tsbuildinfo

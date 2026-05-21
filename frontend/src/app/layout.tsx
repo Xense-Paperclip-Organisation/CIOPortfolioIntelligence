@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 export const metadata: Metadata = {
   title: 'CIO Portfolio Intelligence — Emirates NBD',
@@ -31,7 +32,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <ThemeToggle />
           </div>
         </header>
-        <main className="mx-auto max-w-[1440px] px-6 py-6">{children}</main>
+        <main className="mx-auto max-w-[1440px] px-6 py-6">
+          <ErrorBoundary>{children}</ErrorBoundary>
+        </main>
         <footer className="mx-auto max-w-[1440px] px-6 pb-10 pt-4 text-center font-mono text-[10px] uppercase tracking-wider text-token-fg-muted/70">
           Demo-grade POC · placeholder disclaimers only · live data from yfinance, public RSS, FRED, exchangerate.host
         </footer>

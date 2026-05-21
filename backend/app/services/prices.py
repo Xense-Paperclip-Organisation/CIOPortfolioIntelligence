@@ -24,6 +24,7 @@ from typing import Any
 
 from ..cache import cache_get, cache_set
 from ..config import get_settings
+from ..logging_config import log_ctx
 from .price_providers import get_active_provider, get_shadow_provider
 
 log = logging.getLogger("services.prices")
@@ -143,6 +144,12 @@ def get_quote(symbol: str) -> dict[str, Any] | None:
     quote = provider.get_quote(symbol)
 
     if quote is None:
+        log_ctx(
+            log, logging.WARNING,
+            "Provider returned no quote — using synthesized fallback",
+            symbol=symbol,
+            provider=get_settings().price_provider,
+        )
         quote = _synth_quote(symbol)
 
     cache_set(cache_key, quote, ttl_seconds=get_settings().price_cache_ttl_seconds)
@@ -165,6 +172,13 @@ def get_candles(symbol: str, timeframe: str) -> dict[str, Any]:
     candles = provider.get_candles(symbol, timeframe)
     synthesized = not candles
     if synthesized:
+        log_ctx(
+            log, logging.WARNING,
+            "Provider returned no candles — using synthesized fallback",
+            symbol=symbol,
+            timeframe=timeframe,
+            provider=get_settings().price_provider,
+        )
         candles = _synth_candles(f"{symbol}:{timeframe}")
 
     payload = {

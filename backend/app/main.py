@@ -1,17 +1,17 @@
 """FastAPI entry point."""
 from __future__ import annotations
 
-import logging
+import uuid
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 
 from .api.routes import router
+from .logging_config import configure_logging, log_ctx, request_id_var
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)s %(name)s — %(message)s",
-)
+configure_logging()
+
+import logging
 log = logging.getLogger("cio.backend")
 
 app = FastAPI(
@@ -27,6 +27,19 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+@app.middleware("http")
+async def request_id_middleware(request: Request, call_next) -> Response:
+    rid = request.headers.get("X-Request-ID") or str(uuid.uuid4())
+    token = request_id_var.set(rid)
+    try:
+        response = await call_next(request)
+    finally:
+        request_id_var.reset(token)
+    response.headers["X-Request-ID"] = rid
+    return response
+
+
 app.include_router(router)
 
 
@@ -37,4 +50,4 @@ def healthz() -> dict[str, bool]:
 
 @app.on_event("startup")
 async def on_startup() -> None:
-    log.info("backend ready — POC FastAPI service started")
+    log_ctx(log, logging.INFO, "backend ready — POC FastAPI service started")

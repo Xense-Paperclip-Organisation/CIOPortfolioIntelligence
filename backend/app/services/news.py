@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import traceback
 import re
 import time
 from datetime import datetime
@@ -17,6 +18,7 @@ import feedparser
 
 from ..cache import cache_get, cache_set
 from ..config import get_settings
+from ..logging_config import log_ctx
 
 log = logging.getLogger("services.news")
 
@@ -112,7 +114,14 @@ def fetch_articles(holdings: list[dict[str, Any]], limit: int = 18) -> list[dict
                     if norm:
                         articles.append(norm)
             except Exception as exc:
-                log.warning("RSS feed failed %s: %s", feed.get("url"), exc)
+                log_ctx(
+                    log, logging.WARNING,
+                    "RSS feed failed",
+                    url=feed.get("url"),
+                    source=feed.get("source"),
+                    error=str(exc),
+                    exc_type=type(exc).__name__,
+                )
         # Dedupe by id
         seen = set()
         unique: list[dict[str, Any]] = []
@@ -122,6 +131,8 @@ def fetch_articles(holdings: list[dict[str, Any]], limit: int = 18) -> list[dict
             seen.add(a["id"])
             unique.append(a)
         articles = unique
+        if not articles:
+            log_ctx(log, logging.WARNING, "All RSS feeds returned 0 articles", feed_count=len(RSS_FEEDS))
         cache_set(cache_key, articles, ttl_seconds=get_settings().news_cache_ttl_seconds)
 
     ranked: list[tuple[float, dict[str, Any]]] = []

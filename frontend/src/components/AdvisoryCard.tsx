@@ -4,6 +4,7 @@ import { useState } from 'react';
 import type { AdvisoryOutput } from '@/types/api';
 import { Sparkles, ArrowDown, ArrowLeftRight, Shield, Plus, X, CheckCircle } from 'lucide-react';
 import { apiFetch } from '@/lib/api';
+import { CardError, CardEmpty } from '@/components/CardStates';
 
 const ACTION_META: Record<string, { icon: any; cls: string; label: string }> = {
   Rebalance: { icon: ArrowLeftRight, cls: 'border-token-warning/40 bg-token-warning/10 text-warning',   label: 'Rebalance' },
@@ -88,11 +89,12 @@ function Toast({ message, onDone }: { message: string; onDone: () => void }) {
   );
 }
 
-export function AdvisoryCard({ advisory }: { advisory: AdvisoryOutput | null }) {
+export function AdvisoryCard({ advisory, error }: { advisory: AdvisoryOutput | null; error?: string }) {
   const [modalRec, setModalRec] = useState<Rec | null>(null);
   const [toast, setToast] = useState('');
 
-  if (!advisory) return null;
+  if (error) return <CardError message={`Advisory unavailable: ${error}`} />;
+  if (!advisory) return <CardEmpty message="No advisory data available for this portfolio." />;
 
   return (
     <>
